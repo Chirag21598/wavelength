@@ -40,19 +40,22 @@ export default function Radar({
           })}
         </defs>
 
-        <circle className="ring" cx="200" cy="200" r="60" />
-        <circle className="ring" cx="200" cy="200" r="120" />
-        <circle className="ring" cx="200" cy="200" r="182" />
+        {/* Ring radii step up by an increasing amount each time (45, 50, 55, 60px
+            gaps) so the spacing reads as a deliberate progression rather than
+            the last ring just being jammed in next to the one before it. */}
+        <circle className="ring" cx="200" cy="200" r="45" />
+        <circle className="ring" cx="200" cy="200" r="95" />
+        <circle className="ring" cx="200" cy="200" r="150" />
         {/* Farthest ring — deliberately bigger than the viewBox so it pokes off-screen
             on the sides/top/bottom, marking roughly where the farthest listeners sit. */}
-        <circle className="ring ring-outer" cx="200" cy="200" r="205" />
-        <text className="ring-label" x="204" y="144">
+        <circle className="ring ring-outer" cx="200" cy="200" r="210" />
+        <text className="ring-label" x="204" y="159">
           5 km
         </text>
-        <text className="ring-label" x="204" y="84">
+        <text className="ring-label" x="204" y="109">
           10 km
         </text>
-        <text className="ring-label" x="204" y="22">
+        <text className="ring-label" x="204" y="54">
           15 km
         </text>
 
