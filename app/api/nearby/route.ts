@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 // recently, AND they're either playing something right now or finished
 // playing something within the last 2 hours (the "broadcast window").
 const LOCATION_FRESHNESS_MS = 15 * 60 * 1000; // 15 minutes
-const BROADCAST_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
-const MAX_RADIUS_M = 5000; // 5km — generous for real-world testing
+const BROADCAST_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours
+const MAX_RADIUS_M = 25000; // 25km — covers a whole city (e.g. Coimbatore) for early testing
 
 export async function GET() {
   const sessionUser = await getSessionUser();
