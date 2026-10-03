@@ -43,11 +43,17 @@ export default function Radar({
         <circle className="ring" cx="200" cy="200" r="60" />
         <circle className="ring" cx="200" cy="200" r="120" />
         <circle className="ring" cx="200" cy="200" r="182" />
+        {/* Farthest ring — deliberately bigger than the viewBox so it pokes off-screen
+            on the sides/top/bottom, marking roughly where the farthest listeners sit. */}
+        <circle className="ring ring-outer" cx="200" cy="200" r="205" />
         <text className="ring-label" x="204" y="144">
           5 km
         </text>
         <text className="ring-label" x="204" y="84">
           10 km
+        </text>
+        <text className="ring-label" x="204" y="22">
+          15 km
         </text>
 
         <circle className="you-wave w1" cx="200" cy="200" r="20" />
