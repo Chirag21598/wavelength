@@ -169,17 +169,52 @@ export async function fetchNowPlaying(accessToken: string): Promise<SpotifyNowPl
   };
 }
 
+export type SpotifyDevice = {
+  id: string | null;
+  is_active: boolean;
+  name: string;
+  type: string;
+};
+
 /**
- * Sends a real playback-control command to whatever Spotify device the user
- * currently has active. Requires the user-modify-playback-state scope and an
- * active device in their Spotify app; Spotify returns 404 if neither exists.
+ * Lists the user's available Spotify Connect devices. Used to explicitly
+ * target a device on playback commands, since Spotify's "currently active
+ * device" pointer commonly goes stale (especially on mobile) right after a
+ * pause, which otherwise makes the next play/next/previous call 404.
+ */
+export async function fetchDevices(accessToken: string): Promise<SpotifyDevice[]> {
+  const res = await fetch(`${SPOTIFY_API_URL}/me/player/devices`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => null);
+  return Array.isArray(data?.devices) ? data.devices : [];
+}
+
+/**
+ * Sends a real playback-control command to a Spotify device. Requires the
+ * user-modify-playback-state scope and an active device in their Spotify
+ * app; Spotify returns 404 if neither exists.
+ *
+ * We explicitly resolve and pass a device_id rather than relying solely on
+ * Spotify's "currently active device" pointer: that pointer frequently goes
+ * stale right after a pause (especially on mobile), which otherwise makes a
+ * follow-up play/next/previous call fail with 404 NO_ACTIVE_DEVICE even
+ * though the device is still right there and still connected.
  */
 export async function controlPlayback(
   accessToken: string,
   action: "play" | "pause" | "next" | "previous"
 ): Promise<{ ok: boolean; status: number; message?: string }> {
   const method = action === "next" || action === "previous" ? "POST" : "PUT";
-  const res = await fetch(`${SPOTIFY_API_URL}/me/player/${action}`, {
+
+  const devices = await fetchDevices(accessToken);
+  const target = devices.find((d) => d.is_active) ?? devices[0];
+
+  const url = new URL(`${SPOTIFY_API_URL}/me/player/${action}`);
+  if (target?.id) url.searchParams.set("device_id", target.id);
+
+  const res = await fetch(url.toString(), {
     method,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
