@@ -4,6 +4,10 @@ import { Listener } from "@/lib/types";
 import { hueOf, initialsOf } from "@/lib/visuals";
 
 function radiusForDistance(m: number) {
+  // Purely a visual scale, independent of the API's MAX_RADIUS_M (which no longer
+  // caps who can match). Anyone beyond 25km just pins to the outer ring — the radar
+  // stays readable for nearby people, and far-away people still show up, just at the edge.
+  // The Nearby list view shows everyone's real distance regardless.
   const maxM = 25000,
     maxPx = 148,
     minPx = 34;
