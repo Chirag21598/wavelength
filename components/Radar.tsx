@@ -4,7 +4,7 @@ import { Listener } from "@/lib/types";
 import { hueOf, initialsOf } from "@/lib/visuals";
 
 function radiusForDistance(m: number) {
-  const maxM = 1500,
+  const maxM = 25000,
     maxPx = 148,
     minPx = 34;
   return (Math.min(m, maxM) / maxM) * (maxPx - minPx) + minPx;
@@ -40,10 +40,10 @@ export default function Radar({
         <circle className="ring" cx="200" cy="200" r="120" />
         <circle className="ring" cx="200" cy="200" r="182" />
         <text className="ring-label" x="204" y="144">
-          500 m
+          5 km
         </text>
         <text className="ring-label" x="204" y="84">
-          1 km
+          10 km
         </text>
 
         <circle className="you-wave w1" cx="200" cy="200" r="20" />
