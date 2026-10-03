@@ -759,3 +759,17 @@ body{
   animation:spin-loader .8s linear infinite;
 }
 @keyframes spin-loader{ to{ transform:rotate(360deg); } }
+
+
+/* Mobile fix: fill the real viewport edge-to-edge on phone-width screens instead of floating a fixed-height card with blank space around it */
+@media (max-width:480px){
+  body{ padding-block:0; }
+  .page{ max-width:none; padding-inline:0; }
+  .app{
+    height:100vh;
+    height:100dvh;
+    border-radius:0;
+    border:none;
+    box-shadow:none;
+  }
+}
