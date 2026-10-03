@@ -25,6 +25,7 @@ export default function WavelengthApp() {
   const [locationDenied, setLocationDenied] = useState(false);
   const [activeTab, setActiveTab] = useState<"radar" | "list">("radar");
   const [sheetTarget, setSheetTarget] = useState<SheetTarget | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "live">("all");
   const [toast, setToast] = useState<string | null>(null);
 
   const lastLocationPostRef = useRef(0);
@@ -183,6 +184,9 @@ export default function WavelengthApp() {
     });
   };
 
+  const visibleListeners =
+    filterMode === "live" ? listeners.filter((l) => l.nowPlaying.isPlaying) : listeners;
+
   if (authState === "loading") {
     return (
       <div className="page">
@@ -243,6 +247,24 @@ export default function WavelengthApp() {
           </button>
         </header>
 
+        <div className="filter-bar">
+          <button
+            type="button"
+            className={`filter-chip ${filterMode === "all" ? "active" : ""}`}
+            onClick={() => setFilterMode("all")}
+          >
+            All ({listeners.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-chip ${filterMode === "live" ? "active" : ""}`}
+            onClick={() => setFilterMode("live")}
+          >
+            <span className="dot" />
+            Live now ({listeners.filter((l) => l.nowPlaying.isPlaying).length})
+          </button>
+        </div>
+
         <div className="stage">
           <section className="view" id="radarView" style={{ display: activeTab === "radar" ? "flex" : "none" }}>
             {needsLocation || locationDenied ? (
@@ -256,10 +278,12 @@ export default function WavelengthApp() {
               </div>
             ) : (
               <>
-                <Radar listeners={listeners} onSelect={openListenerSheet} />
+                <Radar listeners={visibleListeners} onSelect={openListenerSheet} />
                 <p className="radar-hint">
-                  {listeners.length > 0
+                  {visibleListeners.length > 0
                     ? "Each dot is a real nearby listener, placed by their real distance and direction. Tap one to see what they're playing."
+                    : filterMode === "live"
+                    ? "No one is actively playing right now. Switch to \"All\" to see everyone who broadcast recently."
                     : "No one nearby is broadcasting right now. Get a friend to connect their Spotify too and test it together."}
                 </p>
               </>
@@ -267,13 +291,13 @@ export default function WavelengthApp() {
           </section>
 
           <section className="view" style={{ display: activeTab === "list" ? "block" : "none" }}>
-            {listeners.length === 0 ? (
+            {visibleListeners.length === 0 ? (
               <div className="empty-state">
                 <h3>Nobody nearby yet</h3>
                 <p>Once someone near you connects Spotify and plays something, they&apos;ll show up here.</p>
               </div>
             ) : (
-              listeners.map((l) => <ListenerCard key={l.id} listener={l} onSelect={openListenerSheet} />)
+              visibleListeners.map((l) => <ListenerCard key={l.id} listener={l} onSelect={openListenerSheet} />)
             )}
           </section>
         </div>
