@@ -124,6 +124,8 @@ export type SpotifyNowPlaying = {
   durationMs: number | null;
 };
 
+export class SpotifyRateLimitError extends Error {}
+
 /**
  * Fetches what this Spotify user is playing right now, falling back to
  * their most recently played track if nothing is currently active.
@@ -133,6 +135,9 @@ export async function fetchNowPlaying(accessToken: string): Promise<SpotifyNowPl
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const currentRes = await fetch(`${SPOTIFY_API_URL}/me/player/currently-playing`, { headers });
+  // Dev-mode apps share a hard request quota; once it's spent every call 429s.
+  // Bail out right away instead of firing a second doomed request.
+  if (currentRes.status === 429) throw new SpotifyRateLimitError("currently-playing: 429");
   if (currentRes.status === 200) {
     const data = await currentRes.json();
     if (data && data.item) {
@@ -153,6 +158,7 @@ export async function fetchNowPlaying(accessToken: string): Promise<SpotifyNowPl
     `${SPOTIFY_API_URL}/me/player/recently-played?limit=1`,
     { headers }
   );
+  if (recentRes.status === 429) throw new SpotifyRateLimitError("recently-played: 429");
   if (!recentRes.ok) return null;
   const recentData = await recentRes.json();
   const last = recentData?.items?.[0];
