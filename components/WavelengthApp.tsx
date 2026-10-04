@@ -70,6 +70,8 @@ export default function WavelengthApp() {
       invalid_state: "Spotify login expired — try connecting again.",
       auth_failed: "Couldn't finish connecting to Spotify. Try again.",
       access_denied: "Spotify access was declined.",
+      spotify_quota: "Spotify is limiting this app right now (dev quota). Try again in a bit.",
+      not_allowed: "This Spotify account hasn't been added to the app yet — ask Chirag to add you.",
     };
     showToast(messages[err] ?? "Something went wrong connecting to Spotify.");
   }, [searchParams, showToast]);
