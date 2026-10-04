@@ -85,8 +85,14 @@ export default function WavelengthApp() {
   useEffect(() => {
     if (authState !== "signed-in") return;
     fetchNearby();
-    const meTimer = setInterval(fetchMe, ME_POLL_MS);
-    const nearbyTimer = setInterval(fetchNearby, NEARBY_POLL_MS);
+    // Skip polling while the tab is in the background — every poll can cost
+    // Spotify API quota, which dev-mode apps have very little of.
+    const meTimer = setInterval(() => {
+      if (!document.hidden) fetchMe();
+    }, ME_POLL_MS);
+    const nearbyTimer = setInterval(() => {
+      if (!document.hidden) fetchNearby();
+    }, NEARBY_POLL_MS);
     return () => {
       clearInterval(meTimer);
       clearInterval(nearbyTimer);
