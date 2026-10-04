@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
     return res;
   } catch (err) {
     console.error("[auth/callback] failed:", err);
-    return NextResponse.redirect(new URL("/?error=auth_failed", request.url));
+    // Spotify dev-mode apps reject anyone who isn't on the allowlist (403) or
+    // answer 429 QUOTA_EXCEEDED once the app's dev quota is used up. Tell the
+    // user which of those happened rather than a vague failure.
+    const msg = err instanceof Error ? err.message : "";
+    const code = msg.includes(": 429") ? "spotify_quota" : msg.includes(": 403") ? "not_allowed" : "auth_failed";
+    return NextResponse.redirect(new URL(`/?error=${code}`, request.url));
   }
 }
