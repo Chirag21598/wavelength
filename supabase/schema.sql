@@ -44,3 +44,55 @@ create index if not exists sessions_user_id_idx on sessions(user_id);
 -- key (used exclusively by our server-side Route Handlers) can read/write.
 alter table users enable row level security;
 alter table sessions enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- Genres, novelty/appreciation points and waves (added later).
+-- ---------------------------------------------------------------------------
+alter table users add column if not exists np_url text;
+alter table users add column if not exists np_genre text;
+alter table users add column if not exists novelty_score integer not null default 0;
+alter table users add column if not exists appreciation_score integer not null default 0;
+
+create table if not exists novelty_marks (
+  id uuid primary key default gen_random_uuid(),
+  giver_id uuid not null references users(id) on delete cascade,
+  receiver_id uuid not null references users(id) on delete cascade,
+  track_key text not null,
+  created_at timestamptz default now(),
+  unique (giver_id, receiver_id, track_key)
+);
+
+create table if not exists waves (
+  id uuid primary key default gen_random_uuid(),
+  from_id uuid not null references users(id) on delete cascade,
+  to_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz default now(),
+  seen_at timestamptz
+);
+create index if not exists waves_to_id_idx on waves(to_id);
+
+alter table novelty_marks enable row level security;
+alter table waves enable row level security;
+
+-- Records one "That's new to me" (once per giver/receiver/track) and bumps both
+-- scores in the same transaction. Returns false if it was already marked.
+create or replace function mark_novel(p_giver uuid, p_receiver uuid, p_track text)
+returns boolean
+language plpgsql
+as $$
+declare
+  n integer;
+begin
+  insert into novelty_marks (giver_id, receiver_id, track_key)
+  values (p_giver, p_receiver, p_track)
+  on conflict do nothing;
+  get diagnostics n = row_count;
+  if n = 0 then
+    return false;
+  end if;
+  update users set novelty_score = novelty_score + 1 where id = p_receiver;
+  update users set appreciation_score = appreciation_score + 1 where id = p_giver;
+  return true;
+end;
+$$;
+revoke execute on function mark_novel(uuid, uuid, text) from public, anon, authenticated;
