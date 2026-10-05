@@ -46,6 +46,7 @@ export default function TurntableCard({
             <span>{nowPlaying.artist}</span>
             {!isPlaying && <span className="tt-status">{relTime(nowPlaying.playedAt)}</span>}
           </div>
+          {nowPlaying.genre && <span className="genre-pill tt-genre">{nowPlaying.genre}</span>}
           <div className="tt-progress">
             <div className="tt-progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
