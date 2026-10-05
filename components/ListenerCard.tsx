@@ -36,6 +36,7 @@ export default function ListenerCard({
           <strong>{listener.nowPlaying.track}</strong>
           {listener.nowPlaying.artist ? ` · ${listener.nowPlaying.artist}` : ""}
         </div>
+        {listener.nowPlaying.genre && <span className="genre-pill card-genre">{listener.nowPlaying.genre}</span>}
       </div>
       {live && (
         <div className="eq">
