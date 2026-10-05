@@ -122,6 +122,7 @@ export type SpotifyNowPlaying = {
   playedAt: string; // ISO timestamp: "now" for currently playing, else last-played time
   progressMs: number | null;
   durationMs: number | null;
+  url: string | null; // Spotify web link for the track
 };
 
 export class SpotifyRateLimitError extends Error {}
@@ -149,6 +150,7 @@ export async function fetchNowPlaying(accessToken: string): Promise<SpotifyNowPl
         playedAt: new Date().toISOString(),
         progressMs: typeof data.progress_ms === "number" ? data.progress_ms : null,
         durationMs: typeof data.item.duration_ms === "number" ? data.item.duration_ms : null,
+        url: data.item.external_urls?.spotify ?? null,
       };
     }
   }
@@ -172,6 +174,7 @@ export async function fetchNowPlaying(accessToken: string): Promise<SpotifyNowPl
     playedAt: last.played_at,
     progressMs: null,
     durationMs: null,
+    url: last.track.external_urls?.spotify ?? null,
   };
 }
 
