@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getValidAccessToken, fetchNowPlaying, SpotifyRateLimitError } from "@/lib/spotify";
+import { lookupGenre } from "@/lib/lastfm";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ type NowPlayingPayload = {
   playedAt: string;
   progressMs: number | null;
   durationMs: number | null;
+  url: string | null;
+  genre: string | null;
 };
 
 export async function GET() {
@@ -30,7 +33,7 @@ export async function GET() {
   const { data: fullUser, error } = await supabaseAdmin
     .from("users")
     .select(
-      "id, access_token, refresh_token, token_expires_at, lat, lng, location_updated_at, np_track, np_artist, np_album_art, np_is_playing, np_played_at, np_updated_at"
+      "id, access_token, refresh_token, token_expires_at, lat, lng, location_updated_at, np_track, np_artist, np_album_art, np_is_playing, np_played_at, np_updated_at, np_url, np_genre, novelty_score, appreciation_score"
     )
     .eq("id", sessionUser.id)
     .single();
@@ -56,23 +59,39 @@ export async function GET() {
         playedAt: fullUser.np_played_at ?? new Date().toISOString(),
         progressMs: null,
         durationMs: null,
+        url: fullUser.np_url ?? null,
+        genre: fullUser.np_genre || null,
       };
     }
   } else {
     try {
       const accessToken = await getValidAccessToken(fullUser);
       if (accessToken) {
-        nowPlaying = await fetchNowPlaying(accessToken);
-        if (nowPlaying) {
+        const fresh = await fetchNowPlaying(accessToken);
+        if (fresh) {
+          // Only look up the genre when the track changed (or we never found
+          // one) — Last.fm is free but there's no reason to hammer it.
+          // Stored as "" when Last.fm had nothing, so we don't retry forever.
+          const changed = fullUser.np_track !== fresh.track || fullUser.np_artist !== fresh.artist;
+          let genre: string = fullUser.np_genre ?? "";
+          if (process.env.LASTFM_API_KEY && (changed || fullUser.np_genre == null)) {
+            genre = (await lookupGenre(fresh.track, fresh.artist)) ?? "";
+          } else if (changed) {
+            genre = "";
+          }
+
+          nowPlaying = { ...fresh, genre: genre || null };
           await supabaseAdmin
             .from("users")
             .update({
-              np_track: nowPlaying.track,
-              np_artist: nowPlaying.artist,
-              np_album_art: nowPlaying.albumArt,
-              np_is_playing: nowPlaying.isPlaying,
-              np_played_at: nowPlaying.playedAt,
+              np_track: fresh.track,
+              np_artist: fresh.artist,
+              np_album_art: fresh.albumArt,
+              np_is_playing: fresh.isPlaying,
+              np_played_at: fresh.playedAt,
               np_updated_at: new Date().toISOString(),
+              np_url: fresh.url,
+              np_genre: process.env.LASTFM_API_KEY ? genre : null,
             })
             .eq("id", fullUser.id);
         } else {
@@ -94,6 +113,21 @@ export async function GET() {
     }
   }
 
+  // Waves other people have sent me.
+  const { data: waveRows } = await supabaseAdmin
+    .from("waves")
+    .select("from_id, created_at, seen_at")
+    .eq("to_id", fullUser.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const waves = waveRows ?? [];
+  const recentRows = waves.slice(0, 5);
+  const senderIds = [...new Set(recentRows.map((w) => w.from_id))];
+  const { data: senders } = senderIds.length
+    ? await supabaseAdmin.from("users").select("id, display_name").in("id", senderIds)
+    : { data: [] as { id: string; display_name: string | null }[] };
+  const nameById = new Map((senders ?? []).map((u) => [u.id, u.display_name]));
+
   return NextResponse.json({
     user: {
       id: sessionUser.id,
@@ -110,5 +144,16 @@ export async function GET() {
           }
         : null,
     nowPlaying,
+    noveltyScore: fullUser.novelty_score ?? 0,
+    appreciationScore: fullUser.appreciation_score ?? 0,
+    waves: {
+      unseen: waves.filter((w) => !w.seen_at).length,
+      total: waves.length,
+      recent: recentRows.map((w) => ({
+        fromId: w.from_id,
+        fromName: nameById.get(w.from_id) ?? null,
+        at: w.created_at,
+      })),
+    },
   });
 }
