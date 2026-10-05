@@ -82,6 +82,7 @@ export default function ProfileSheet({
 
           {np?.track ? (
             <div className="sheet-track">
+              {np.albumArt && <img className="cover-art" src={np.albumArt} alt="" />}
               <div className="sheet-track-info">
                 <div className="np-label">
                   <span>{np.isPlaying ? "Playing now" : "Last played"}</span>{" "}
@@ -94,10 +95,9 @@ export default function ProfileSheet({
                 </div>
                 {np.genre && <span className="genre-pill">{np.genre}</span>}
               </div>
-              {np.albumArt && <img className="cover-art" src={np.albumArt} alt="" />}
-              {np.url && (
+              {!target.isMe && np.url && (
                 <a
-                  className="play-spotify"
+                  className="tt-btn tt-play play-spotify"
                   href={np.url}
                   target="_blank"
                   rel="noreferrer"
@@ -105,7 +105,7 @@ export default function ProfileSheet({
                   title="Play on Spotify"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor" />
+                    <path d="M8 5v14l11-7z" fill="currentColor" />
                   </svg>
                 </a>
               )}
