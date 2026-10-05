@@ -51,6 +51,16 @@ export async function GET() {
 
   if (isFresh) {
     if (fullUser.np_track) {
+      // Backfill a missing genre for the saved track (no Spotify call needed).
+      // Stored as "" when nothing was found so we don't look it up again.
+      let savedGenre: string | null = fullUser.np_genre || null;
+      if (fullUser.np_genre == null) {
+        savedGenre = await lookupGenre(fullUser.np_track, fullUser.np_artist ?? "");
+        await supabaseAdmin
+          .from("users")
+          .update({ np_genre: savedGenre ?? "" })
+          .eq("id", fullUser.id);
+      }
       nowPlaying = {
         isPlaying: Boolean(fullUser.np_is_playing),
         track: fullUser.np_track,
@@ -60,7 +70,7 @@ export async function GET() {
         progressMs: null,
         durationMs: null,
         url: fullUser.np_url ?? null,
-        genre: fullUser.np_genre || null,
+        genre: savedGenre,
       };
     }
   } else {
@@ -70,14 +80,12 @@ export async function GET() {
         const fresh = await fetchNowPlaying(accessToken);
         if (fresh) {
           // Only look up the genre when the track changed (or we never found
-          // one) — Last.fm is free but there's no reason to hammer it.
-          // Stored as "" when Last.fm had nothing, so we don't retry forever.
+          // one) — the tag services are free but there's no reason to hammer them.
+          // Stored as "" when nothing was found, so we don't retry forever.
           const changed = fullUser.np_track !== fresh.track || fullUser.np_artist !== fresh.artist;
           let genre: string = fullUser.np_genre ?? "";
-          if (process.env.LASTFM_API_KEY && (changed || fullUser.np_genre == null)) {
+          if (changed || fullUser.np_genre == null) {
             genre = (await lookupGenre(fresh.track, fresh.artist)) ?? "";
-          } else if (changed) {
-            genre = "";
           }
 
           nowPlaying = { ...fresh, genre: genre || null };
@@ -91,7 +99,7 @@ export async function GET() {
               np_played_at: fresh.playedAt,
               np_updated_at: new Date().toISOString(),
               np_url: fresh.url,
-              np_genre: process.env.LASTFM_API_KEY ? genre : null,
+              np_genre: genre,
             })
             .eq("id", fullUser.id);
         } else {
