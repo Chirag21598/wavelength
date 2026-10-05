@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MeResponse, NearbyResponse, Listener } from "@/lib/types";
+import { GENRE_BUCKETS, GenreBucket } from "@/lib/genres";
 import Radar from "./Radar";
 import ListenerCard from "./ListenerCard";
 import TurntableCard from "./TurntableCard";
@@ -24,8 +25,8 @@ export default function WavelengthApp() {
   const [needsLocation, setNeedsLocation] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
   const [activeTab, setActiveTab] = useState<"radar" | "list">("radar");
+  const [filterMode, setFilterMode] = useState<"all" | "live" | GenreBucket>("all");
   const [sheetTarget, setSheetTarget] = useState<SheetTarget | null>(null);
-  const [filterMode, setFilterMode] = useState<"all" | "live">("all");
   const [toast, setToast] = useState<string | null>(null);
 
   const lastLocationPostRef = useRef(0);
@@ -169,6 +170,57 @@ export default function WavelengthApp() {
     setAuthState("signed-out");
   }, []);
 
+  const handleMarkNovel = useCallback(
+    async (target: SheetTarget) => {
+      const res = await fetch("/api/marks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiverId: target.id }),
+      });
+      if (!res.ok) {
+        showToast("Couldn't save that — try again in a moment.");
+        return;
+      }
+      const data = await res.json();
+      const gained = data.alreadyMarked ? 0 : 1;
+      setListeners((prev) =>
+        prev.map((l) =>
+          l.id === target.id ? { ...l, hasMarked: true, noveltyScore: l.noveltyScore + gained } : l
+        )
+      );
+      setSheetTarget((prev) =>
+        prev && prev.id === target.id
+          ? { ...prev, hasMarked: true, noveltyScore: prev.noveltyScore + gained }
+          : prev
+      );
+      if (gained) {
+        setMe((prev) => (prev ? { ...prev, appreciationScore: prev.appreciationScore + 1 } : prev));
+        showToast(`Marked as new — +1 novelty for ${target.displayName ?? "them"}, +1 appreciation for you.`);
+      } else {
+        showToast("You already marked this track.");
+      }
+    },
+    [showToast]
+  );
+
+  const handleWave = useCallback(
+    async (target: SheetTarget) => {
+      const res = await fetch("/api/waves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toId: target.id }),
+      });
+      if (!res.ok) {
+        showToast("Couldn't send the wave — try again in a moment.");
+        return;
+      }
+      setListeners((prev) => prev.map((l) => (l.id === target.id ? { ...l, hasWaved: true } : l)));
+      setSheetTarget((prev) => (prev && prev.id === target.id ? { ...prev, hasWaved: true } : prev));
+      showToast(`Wave sent to ${target.displayName ?? "them"} 👋`);
+    },
+    [showToast]
+  );
+
   const openMeSheet = () => {
     if (!me) return;
     setSheetTarget({
@@ -178,7 +230,15 @@ export default function WavelengthApp() {
       avatarUrl: me.user.avatarUrl,
       instagram: me.user.instagram,
       nowPlaying: me.nowPlaying,
+      noveltyScore: me.noveltyScore,
+      appreciationScore: me.appreciationScore,
+      waves: me.waves,
     });
+    // Opening my profile counts as seeing my waves — clear the badge.
+    if (me.waves.unseen > 0) {
+      fetch("/api/waves", { method: "PATCH" }).catch(() => {});
+      setMe((prev) => (prev ? { ...prev, waves: { ...prev.waves, unseen: 0 } } : prev));
+    }
   };
 
   const openListenerSheet = (l: Listener) => {
@@ -189,11 +249,20 @@ export default function WavelengthApp() {
       avatarUrl: l.avatarUrl,
       instagram: l.instagram,
       nowPlaying: l.nowPlaying,
+      distanceM: l.distanceM,
+      noveltyScore: l.noveltyScore,
+      appreciationScore: l.appreciationScore,
+      hasMarked: l.hasMarked,
+      hasWaved: l.hasWaved,
     });
   };
 
   const visibleListeners =
-    filterMode === "live" ? listeners.filter((l) => l.nowPlaying.isPlaying) : listeners;
+    filterMode === "all"
+      ? listeners
+      : filterMode === "live"
+      ? listeners.filter((l) => l.nowPlaying.isPlaying)
+      : listeners.filter((l) => l.nowPlaying.genre === filterMode);
 
   if (authState === "loading") {
     return (
@@ -252,6 +321,7 @@ export default function WavelengthApp() {
               isMe
               className="profile-avatar"
             />
+            {me && me.waves.unseen > 0 && <span className="wave-badge">{me.waves.unseen}</span>}
           </button>
         </header>
 
@@ -271,6 +341,16 @@ export default function WavelengthApp() {
             <span className="dot" />
             Live now ({listeners.filter((l) => l.nowPlaying.isPlaying).length})
           </button>
+          {GENRE_BUCKETS.map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={`filter-chip ${filterMode === g ? "active" : ""}`}
+              onClick={() => setFilterMode(g)}
+            >
+              {g}
+            </button>
+          ))}
         </div>
 
         <div className="stage">
@@ -292,6 +372,8 @@ export default function WavelengthApp() {
                     ? "Each dot is a real nearby listener, placed by their real distance and direction. Tap one to see what they're playing."
                     : filterMode === "live"
                     ? "No one is actively playing right now. Switch to \"All\" to see everyone who broadcast recently."
+                    : filterMode !== "all"
+                    ? `No one nearby is playing ${filterMode} right now. Switch to "All" to see everyone.`
                     : "No one nearby is broadcasting right now. Get a friend to connect their Spotify too and test it together."}
                 </p>
               </>
@@ -345,6 +427,8 @@ export default function WavelengthApp() {
         onClose={() => setSheetTarget(null)}
         onSaveInstagram={handleSaveInstagram}
         onLogout={handleLogout}
+        onMarkNovel={handleMarkNovel}
+        onWave={handleWave}
       />
 
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
